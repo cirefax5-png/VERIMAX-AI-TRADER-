@@ -1,0 +1,60 @@
+import json
+import os
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+BOT_NAME = "VERIMAX AI TRADER"
+
+def analyse_market(data):
+    prices = data.get("prices", [])
+    daily_trend = data.get("daily_trend", "NEUTRAL")
+    symbol = data.get("symbol", "UNKNOWN")
+
+    if len(prices) < 20:
+        return {"status": "WAIT", "message": "Insufficient market data"}
+
+    fast = sum(prices[-5:]) / 5
+    slow = sum(prices[-20:]) / 20
+
+    if fast > slow and daily_trend == "BUY":
+        signal = "BUY"
+    elif fast < slow and daily_trend == "SELL":
+        signal = "SELL"
+    else:
+        signal = "WAIT"
+
+    return {
+        "bot": BOT_NAME,
+        "symbol": symbol,
+        "signal": signal,
+        "entry": prices[-1],
+        "stop_loss": "To be calculated",
+        "take_profit": "To be calculated",
+        "daily_confirmation": daily_trend
+    }
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(
+            b"VERIMAX AI TRADER IS RUNNING"
+        )
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        data = json.loads(self.rfile.read(length))
+
+        result = analyse_market(data)
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(result).encode())
+
+port = int(os.environ.get("PORT", 10000))
+
+server = HTTPServer(("0.0.0.0", port), Handler)
+
+print("VERIMAX AI TRADER STARTED")
+
+server.serve_forever()
